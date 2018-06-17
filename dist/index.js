@@ -2,39 +2,70 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const electron = require('electron');
 const chokidar = require('chokidar');
-/**
- * Register each new window to reload events
- * @param {Electron.App} app - Electron App
- */
-function handleNewCreatedWindows(app) {
-    app.on('browser-window-created', (e, window) => {
-        window.on('ready-for-reload', (ev) => {
-            window.webContents.reloadIgnoringCache();
-        });
-    });
-}
-/**
- * On files that the config.glob includes change
- */
-function onFilesChange() {
-    electron.BrowserWindow.getAllWindows().forEach((window) => {
-        if (window.listenerCount('before-reload') > 0) {
-            window.emit('before-reload');
+class ReloadManager {
+    constructor() {
+        this.handleNewCreatedWindows(electron.app);
+    }
+    /**
+     * Initialize and start the files watcher
+     * @param {Config} config - Configuration for the reload
+     */
+    startWatcher(config) {
+        this.watcher = chokidar.watch(config.watcher.glob, config.watcher.opt);
+        this.watcher.on('change', () => this.askForReload());
+    }
+    closeWatcher() {
+        if (!this.watcher)
+            return;
+        this.watcher.close();
+    }
+    addReloadMenuItem(shortkeyPattern) {
+        if (electron.app.isReady()) {
+            this.addMenuItemAndGlobalShortKey(shortkeyPattern);
         }
         else {
-            window.webContents.reloadIgnoringCache();
+            electron.app.on('ready', () => {
+                this.addMenuItemAndGlobalShortKey(shortkeyPattern);
+            });
         }
-    });
+    }
+    /**
+     * Emit 'before-reload' in all windows that registered to that event.
+     * All the rest of windows reload themselves.
+     */
+    askForReload() {
+        electron.BrowserWindow.getAllWindows().forEach((window) => {
+            if (window.listenerCount('before-reload') > 0) {
+                window.emit('before-reload');
+            }
+            else {
+                window.webContents.reloadIgnoringCache();
+            }
+        });
+    }
+    /**
+     * Register each new window to reload events
+     * @param {Electron.App} app - Electron App
+     */
+    handleNewCreatedWindows(app) {
+        app.on('browser-window-created', (e, window) => {
+            window.once('ready-for-reload', (ev) => {
+                window.webContents.reloadIgnoringCache();
+            });
+        });
+    }
+    addMenuItemAndGlobalShortKey(shortkeyPattern) {
+        let menuItem = new electron.MenuItem({
+            label: 'Planned Reload',
+            click: menuItem => this.askForReload(),
+            accelerator: shortkeyPattern
+        });
+        let viewMenu = electron.Menu.getApplicationMenu().items.find(m => m.label.toLowerCase() == 'view');
+        if (viewMenu != null) {
+            viewMenu.submenu.insert(0, menuItem);
+            electron.globalShortcut.register(shortkeyPattern, () => this.askForReload());
+        }
+    }
 }
-/**
- * Initialize hot reload
- * @param {Config} config - Configuration for the reload
- */
-function initHotReloader(config) {
-    handleNewCreatedWindows(electron.app);
-    const watcher = chokidar.watch(config.watcher.glob, config.watcher.opt);
-    watcher.on('change', () => onFilesChange());
-}
-exports.initHotReloader = initHotReloader;
-exports.default = initHotReloader;
+exports.default = ReloadManager;
 //# sourceMappingURL=index.js.map

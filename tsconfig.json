@@ -5,7 +5,6 @@
     "outDir": "./dist",
     "target": "esnext",
     "declaration": true,
-    "strict": true,
     "sourceMap": true
   },
   "exclude": [
