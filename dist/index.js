@@ -49,7 +49,8 @@ class ReloadManager {
      */
     handleNewCreatedWindows(app) {
         app.on('browser-window-created', (e, window) => {
-            window.once('ready-for-reload', (ev) => {
+            window.on('ready-for-reload', (ev) => {
+                window.removeAllListeners('before-reload');
                 window.webContents.reloadIgnoringCache();
             });
         });

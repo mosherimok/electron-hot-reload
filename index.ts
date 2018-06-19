@@ -2,9 +2,7 @@ import * as Electron from 'electron';
 import BrowserWindow = Electron.BrowserWindow;
 import {FSWatcher} from 'fs';
 import Menu = Electron.Menu;
-import MenuItem = Electron.MenuItem;
 import MenuItemConstructorOptions = Electron.MenuItemConstructorOptions;
-import Accelerator = Electron.Accelerator;
 
 const electron = require('electron');
 const chokidar = require('chokidar');
@@ -66,7 +64,8 @@ class ReloadManager {
    */
   private handleNewCreatedWindows(app: Electron.App) {
     app.on('browser-window-created', (e: Event, window: BrowserWindow) => {
-      window.once('ready-for-reload' as any, (ev: Event) => {
+      window.on('ready-for-reload' as any, (ev: Event) => {
+        window.removeAllListeners('before-reload');
         window.webContents.reloadIgnoringCache();
       });
     });
